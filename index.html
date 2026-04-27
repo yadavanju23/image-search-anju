@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Image Similarity Search</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  padding: 20px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: auto;
+}
+
+/* Upload */
+.upload {
+  border: 2px dashed #4a6cf7;
+  padding: 40px;
+  text-align: center;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: 0.3s;
+}
+
+.upload.active {
+  background: #eef3ff;
+  transform: scale(1.03);
+}
+
+/* Preview */
+.preview {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.preview img {
+  width: 120px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  animation: fadeIn 0.4s ease;
+}
+
+/* Controls */
+.controls {
+  margin-top: 15px;
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(170px,1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+/* Card */
+.card {
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  animation: fadeInUp 0.4s ease;
+  transition: 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+/* Image */
+.img-box {
+  position: relative;
+}
+
+.img-box img {
+  width: 100%;
+  border-radius: 8px;
+}
+
+/* Download button */
+.download {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-decoration: none;
+  opacity: 0;
+  transition: 0.3s;
+}
+
+.img-box:hover .download {
+  opacity: 1;
+}
+
+/* Text */
+.name {
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.percent {
+  font-weight: bold;
+  color: #2ecc71;
+}
+
+/* Buttons */
+button {
+  padding: 8px 15px;
+  margin: 5px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background: #4a6cf7;
+  color: white;
+}
+
+button:hover {
+  background: #2f49c9;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {opacity:0;}
+  to {opacity:1;}
+}
+
+@keyframes fadeInUp {
+  from {opacity:0; transform:translateY(10px);}
+  to {opacity:1; transform:translateY(0);}
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Image Similarity Search</h2>
+
+<!-- Upload -->
+<div class="upload" id="drop">
+  <p>📁 Drag & Drop Image</p>
+  <span>or click to upload</span>
+  <input type="file" id="file" hidden>
+</div>
+
+<!-- Preview -->
+<div class="preview" id="preview"></div>
+
+<!-- Controls -->
+<div class="controls">
+  Similarity: <span id="val">60</span>%
+  <input type="range" id="range" min="0" max="100" value="60">
+</div>
+
+<div id="status"></div>
+
+<!-- Results -->
+<div class="grid" id="grid"></div>
+
+<!-- Pagination -->
+<div style="text-align:center; margin-top:20px;">
+  <button onclick="prev()">Prev</button>
+  <button onclick="next()">Next</button>
+</div>
+
+</div>
+
+<script>
+let images = [];
+let results = [];
+let page = 0;
+const perPage = 20;
+
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+
+drop.onclick = () => fileInput.click();
+
+drop.ondragover = e => {
+  e.preventDefault();
+  drop.classList.add("active");
+};
+
+drop.ondragleave = () => {
+  drop.classList.remove("active");
+};
+
+drop.ondrop = e => {
+  e.preventDefault();
+  drop.classList.remove("active");
+  handleFile(e.dataTransfer.files[0]);
+};
+
+fileInput.onchange = e => handleFile(e.target.files[0]);
+
+document.getElementById("range").oninput = e => {
+  document.getElementById("val").innerText = e.target.value;
+};
+
+async function fetchImages(){
+  const res = await fetch("fetch_images.php");
+  images = await res.json();
+}
+
+function histogram(img){
+  const c = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+
+  c.width = 100;
+  c.height = 100;
+  ctx.drawImage(img,0,0,100,100);
+
+  const data = ctx.getImageData(0,0,100,100).data;
+  const hist = new Array(64).fill(0);
+
+  for(let i=0;i<data.length;i+=4){
+    const r = Math.floor(data[i]/64);
+    const g = Math.floor(data[i+1]/64);
+    const b = Math.floor(data[i+2]/64);
+    hist[r*16 + g*4 + b]++;
+  }
+
+  const norm = Math.sqrt(hist.reduce((a,b)=>a+b*b,0)) || 1;
+  return hist.map(x=>x/norm);
+}
+
+function cosine(a,b){
+  return a.reduce((sum,v,i)=>sum+v*b[i],0);
+}
+
+function loadImage(src){
+  return new Promise(res=>{
+    const img = new Image();
+    img.crossOrigin="anonymous";
+    img.onload = ()=>res(img);
+    img.src = src;
+  });
+}
+
+async function handleFile(file){
+  // ✅ PREVIEW
+  const preview = document.getElementById("preview");
+  const url = URL.createObjectURL(file);
+  preview.innerHTML = `<img src="${url}">`;
+
+  document.getElementById("status").innerText="Processing...";
+
+  const img = await loadImage(url);
+  const query = histogram(img);
+
+  await fetchImages();
+
+  results = [];
+
+  for(let i=0;i<images.length;i++){
+    const item = images[i];
+
+    let emb = localStorage.getItem(item.image);
+
+    if(emb){
+      emb = JSON.parse(emb);
+    } else {
+      const im = await loadImage(item.image);
+      emb = histogram(im);
+      localStorage.setItem(item.image, JSON.stringify(emb));
+    }
+
+    const sim = cosine(query, emb);
+    const percent = Math.round(sim * 100);
+
+    const threshold = document.getElementById("range").value;
+
+    if(percent >= threshold){
+      results.push({...item, percent});
+    }
+  }
+
+  results.sort((a,b)=>b.percent-a.percent);
+  page = 0;
+  render();
+
+  document.getElementById("status").innerText="Done";
+}
+
+function render(){
+  const grid = document.getElementById("grid");
+  grid.innerHTML="";
+
+  const start = page * perPage;
+  const slice = results.slice(start, start+perPage);
+
+  slice.forEach(r=>{
+    grid.innerHTML += `
+      <div class="card">
+        <div class="img-box">
+          <img src="${r.image}" loading="lazy">
+          <a href="${r.image}" download class="download">⬇</a>
+        </div>
+        <p class="name">${r.name}</p>
+        <div class="percent">${r.percent}%</div>
+      </div>
+    `;
+  });
+}
+
+function next(){
+  if((page+1)*perPage < results.length){
+    page++;
+    render();
+  }
+}
+
+function prev(){
+  if(page>0){
+    page--;
+    render();
+  }
+}
+</script>
+
+</body>
+</html>

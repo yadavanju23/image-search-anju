@@ -1,0 +1,130 @@
+body {
+  font-family: Arial;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  padding: 20px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: auto;
+}
+
+/* Upload Box */
+.upload {
+  border: 2px dashed #4a6cf7;
+  padding: 40px;
+  text-align: center;
+  background: white;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.upload-inner p {
+  font-size: 18px;
+  margin: 0;
+}
+
+.upload-inner span {
+  font-size: 12px;
+  color: #666;
+}
+
+.upload.active {
+  background: #eef3ff;
+  transform: scale(1.02);
+}
+
+/* Controls */
+.controls {
+  margin-top: 15px;
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(180px,1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+/* Card */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+  transition: 0.3s;
+  animation: fadeIn 0.4s ease;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+}
+
+/* Image */
+.img-box {
+  position: relative;
+}
+
+.img-box img {
+  width: 100%;
+  border-radius: 10px;
+}
+
+/* Download button */
+.download {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #000;
+  color: #fff;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 12px;
+  opacity: 0;
+  transition: 0.3s;
+}
+
+.img-box:hover .download {
+  opacity: 1;
+}
+
+/* Name */
+.name {
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+/* Percent */
+.percent {
+  font-weight: bold;
+  color: #2ecc71;
+}
+
+/* Buttons */
+.pagination {
+  text-align: center;
+  margin-top: 20px;
+}
+
+button {
+  padding: 8px 15px;
+  margin: 5px;
+  border: none;
+  border-radius: 6px;
+  background: #4a6cf7;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2f49c9;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {opacity:0; transform:translateY(10px);}
+  to {opacity:1; transform:translateY(0);}
+}
